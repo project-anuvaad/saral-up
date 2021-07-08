@@ -83,7 +83,7 @@ class PatScanDetailsComponent extends Component {
         let studentsArr = []
         students.forEach((studentsData, index) => {
             let obj = {
-                rollNumber: studentsData.roll,
+                rollNumber: studentsData.srn,
                 stdErr: ''
             }
             let marksArr = []
@@ -95,71 +95,22 @@ class PatScanDetailsComponent extends Component {
                 let marksDataObj = {}
                 totalMarks +=  marksData.mark.length > 0 ? parseInt(marksData.mark) : marksData.mark
                 marksDataObj.mark = marksData.mark.length > 0 ? parseInt(marksData.mark) : marksData.mark
-                marksDataObj.learning = `LO-${marksIndex + 1}`
+                marksDataObj.question = String(marksData.question)
                 marks.push(marksDataObj)
                 
-                if (data.scannerCode == 1) {
-                    if (marksIndex == 2) {
-                        marksObj.levelText = 'स्तर - 1'
-                        marksObj.marks = marks.slice(0, 3)
-                        marksArr.push(marksObj)
-                    }
-                    if (marksIndex == 6) {
-                        marksObj.levelText = 'स्तर - 2'
-                        marksObj.marks = marks.slice(3, 7)
-                        marksArr.push(marksObj)
-                    }
-                    if (marksIndex == 12) {
-                        marksObj.levelText = 'स्तर - 3'
-                        marksObj.marks = marks.slice(7, marks.length)
-                        marksArr.push(marksObj)
-                    }
-                } else if (data.scannerCode == 2) {
                     if (marksIndex == 4) {
+                        marksObj.levelText = 'HINDI'
                         marksObj.marks = marks.slice(0, 5)
                         marksArr.push(marksObj)
                     }
                     if (marksIndex == 9) {
+                        marksObj.levelText = 'MATH'
                         marksObj.marks = marks.slice(5, 10)
                         marksArr.push(marksObj)
                     }
-                    if (marksIndex == 14) {
-                        marksObj.marks = marks.slice(10, 15)
-                        marksArr.push(marksObj)
-                    }
-                    if (marksIndex == 19) {
-                        marksObj.marks = marks.slice(15, marks.length)
-                        marksArr.push(marksObj)
-                    }
-                }
-                else if (data.scannerCode == 3) {
-                    if (marksIndex == 5) {
-                        marksObj.marks = marks.slice(0, 6)
-                        marksArr.push(marksObj)
-                    }
-                    if (marksIndex == 11) {
-                        marksObj.marks = marks.slice(6, 12)
-                        marksArr.push(marksObj)
-                    }
-                    if (marksIndex == 17) {
-                        marksObj.marks = marks.slice(12, 18)
-                        marksArr.push(marksObj)
-                    }
-                    if (marksIndex == 23) {
-                        marksObj.marks = marks.slice(18, 24)
-                        marksArr.push(marksObj)
-                    }
-                    if (marksIndex == 29) {
-                        marksObj.marks = marks.slice(24, marks.length)
-                        marksArr.push(marksObj)
-                    }
-                }
-
             });
             obj.marksData = marksArr
-            if(!studentsData.roll.includes('1111111') && totalMarks != 0 && !studentsData.roll.includes('111111') && !studentsData.roll.includes('11111')) {
-                studentsArr.push(obj)
-            }
+            studentsArr.push(obj)
         });
         
         if(studentsArr.length == 0) {
@@ -198,8 +149,8 @@ class PatScanDetailsComponent extends Component {
     validateData = (data) => {
         let valid = true
         for(let i = 0; i < data.length; i++) {
-            if(data[i].rollNumber.length != 7) {
-                data[i].stdErr = Strings.student_roll_length_error
+            if(data[i].rollNumber.length !=3) {
+                data[i].stdErr = Strings.srn_length_error
                 this.setState({
                     studentsScanData: data
                 })
@@ -252,7 +203,7 @@ class PatScanDetailsComponent extends Component {
                         totalMarks++
                         securedMarks += mark
                         let saveMarksObj = {
-                            "questionId": marksObj.learning,
+                            "questionId": marksObj.question,
                             "obtainedMarks": marksObj.mark
                         }
                         saveMarksInfo.push(saveMarksObj)

@@ -35,23 +35,12 @@ public class RNOpenCvCameraModel extends ReactContextBaseJavaModule implements A
     }
 
     @ReactMethod
-    void openScanCamera(String rollNumberList, String scannerType, int scannerCode, Promise promise) throws JSONException {
+    void openScanCamera(String rollNumberList, Promise promise) throws JSONException {
         JSONArray rollArray = new JSONArray(rollNumberList);
         Log.d(TAG, "NumberPool-OpenCamera  :: "+rollArray);
         mPromise = promise;
         final Activity activity = getCurrentActivity();
-        Intent intent = new Intent();
-        if(scannerType.equals(SCANNER_TYPE.PAT)) {
-            intent = new Intent(activity, UPPATScannerActivity.class);
-        }
-        else if(scannerType.equals(SCANNER_TYPE.SAT)) {
-            intent = new Intent(activity, UPSATScannerActivity.class);
-        }
-//        Intent intent = new Intent(activity, UPPATScannerActivity.class);
-//        Bundle b        = new Bundle();
-//        b.putInt("scanner", scannerType);
-        intent.putExtra("scanner", scannerCode);
-        intent.putExtra("scannerType", scannerType);
+        Intent intent = new Intent(activity, UPPATScannerActivity.class);
         intent.putExtra("NUMBER_POOL",rollArray.toString());
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         getReactApplicationContext().startActivity(intent);

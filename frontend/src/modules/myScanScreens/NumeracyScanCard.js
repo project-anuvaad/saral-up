@@ -19,17 +19,17 @@ const NumeracyScanCard = ({
     return(
         <View 
             style={styles.container}
-        >       
+        >      
             <Text style={styles.headerLabelStyle}>{studentIndex+1}</Text>
             <TextField
-                labelText={Strings.student_roll}
+                labelText={Strings.srn_text}
                 errorField={stdErr != '' || isNaN(rollNumber)}
-                errorText={stdErr != '' ? stdErr : Strings.please_correct_student_roll}
+                errorText={stdErr != '' ? stdErr : Strings.please_correct_srn}
                 onChangeText={onChangeText}
                 value={rollNumber}
                 editable={editable}
                 keyboardType={'numeric'}
-                maxLength={7}
+                maxLength={3}
             />
             <View style={styles.marksContainer}>
                 {marksData && marksData.length > 0 &&
@@ -46,7 +46,7 @@ const NumeracyScanCard = ({
                                     <View style={[styles.marksDataContainer, customRowStyle, { width: `${width}%` } ]} key={index}>
                                         <TextInput
                                             style={[styles.titleTextStyle, { borderColor: rowBorderColor, borderBottomWidth: .8, color: AppTheme.GREY_TEXT } ]}
-                                            value={marks.learning}
+                                            value={marks.question}
                                             multiline={true}
                                             editable={false}
                                         />

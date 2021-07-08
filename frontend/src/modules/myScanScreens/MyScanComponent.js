@@ -142,7 +142,7 @@ class MyScanComponent extends Component {
                 let uniqStudentsList = ['1234567', '2345678' ]
                 const scannerType = scanTypeData.scanType ? scanTypeData.scanType : SCAN_TYPES.PAT_TYPE
                 const scannerCode = this.getScannerType(scannerType)
-                RNOpenCvCameraModel.openScanCamera(JSON.stringify(uniqStudentsList), scannerType, scannerCode)
+                RNOpenCvCameraModel.openScanCamera(JSON.stringify(uniqStudentsList))
                     .then(data => {
                         console.log("imgArrSuccess", JSON.parse(data));
                         let scannerResponse = JSON.parse(data)

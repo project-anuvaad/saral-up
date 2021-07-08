@@ -22,7 +22,7 @@ const StudentsSummaryCard = ({
                 <View style={styles.deatilsViewContainer}>
                     <View style={styles.detailsSubContainerStyle}>
                         {/* <Text style={[styles.nameTextStyle, { fontWeight: 'bold', color: AppTheme.BLACK, fontSize: AppTheme.FONT_SIZE_LARGE }]}>{studentName}</Text> */}
-                        <Text style={styles.nameTextStyle}>{Strings.student_roll + ': ' + studentRollNumber}</Text>
+                        <Text style={styles.nameTextStyle}>{Strings.srn_text + ': ' + studentRollNumber}</Text>
                     </View>
                 </View>
             </View>

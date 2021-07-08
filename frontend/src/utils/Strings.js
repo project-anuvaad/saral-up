@@ -63,5 +63,8 @@ export default strings = new LocalizedStrings({
         student_roll_length_error: 'RollNo. should be 7 digit',
         sat_string: 'SAT',
         pat_string: 'PAT',
+        srn_text: 'SRN',
+        srn_length_error: 'SRN should be 3 digit',
+        please_correct_srn: 'Please correct the SRN',
     }
 })
