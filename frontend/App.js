@@ -18,6 +18,7 @@ import { Provider } from 'react-redux';
 import { storeFactory } from './src/flux/store/store';
 // import RNBootSplash from "react-native-bootsplash";
 import { setCustomText, setCustomTextInput, setCustomTouchableOpacity } from 'react-native-global-props';
+import SplashScreen from 'react-native-splash-screen'
 
 const customTextProps = {
   allowFontScaling: false,
@@ -39,7 +40,9 @@ setCustomTouchableOpacity(customTouchableOpacityProps);
 const App = () => {
   
   useEffect(() => {
-    // RNBootSplash.hide({ duration: 50 });
+    setTimeout(() => {
+      SplashScreen.hide();  
+    }, 1000);
     StatusBar.setBackgroundColor('#FFF')
   },[])
 

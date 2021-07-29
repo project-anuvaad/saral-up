@@ -13,13 +13,13 @@ import HeaderComponent from '../common/components/HeaderComponent';
 import DropDownMenu from '../common/components/DropDownComponent';
 import TextField from '../common/components/TextField';
 import ButtonComponent from '../common/components/ButtonComponent';
-import { getLoginData, setStudentsExamData, getStudentsExamData, getLoginCred, setLoginData } from '../../utils/StorageUtils'
-import { OcrLocalResponseAction } from '../../flux/actions/apis/OcrLocalResponseAction'
-import { GetStudentsAndExamData } from '../../flux/actions/apis/getStudentsAndExamData';
+import { setStudentsAndSavedScanData, getStudentsAndSavedScanData, getLoginCred, setLoginData } from '../../utils/StorageUtils'
+import { GetStudentsAndSavedScanData } from '../../flux/actions/apis/getStudentsAndSavedScanData';
 import { FilteredDataAction } from '../../flux/actions/apis/filteredDataActions';
 import APITransport from '../../flux/actions/transport/apitransport';
-import { SCAN_TYPES } from '../../utils/CommonUtils';
-import { StackActions, NavigationActions } from 'react-navigation';
+import { validateToken } from '../../utils/CommonUtils'
+import { LoginAction } from '../../flux/actions/apis/LoginAction';
+import { LocalStudentsAndSavedScanData } from '../../flux/actions/apis/LocalStudentsAndSavedData';
 
 
 const clearState = {
@@ -28,27 +28,21 @@ const clearState = {
     classList: [],
     classListIndex: -1,
     selectedClass: '',
-    sectionList: [],
-    sectionListIndex: -1,
-    selectedSection: '',
     pickerDate: new Date(),
     selectedDate: '',
-    subArr: [],
-    subIndex: -1,
-    selectedSubject: '',
+    classValid: false,
     errClass: '',
-    errSub: '',
     errDate: '',
-    errSection: '',
     selectedClassId: '',
     calledStudentsData: false,
-    sectionValid: false,
-    username: '',
+    schoolId: '',
     password: '',
     dataPayload: null,
     calledLogin: false,
     callApi: '',
-    dateVisible: false
+    dateVisible: false,
+    autoLoginAttempt: 1,
+    studentsAndSavedData: null
 }
 
 class SelectDetailsComponent extends Component {
@@ -63,49 +57,37 @@ class SelectDetailsComponent extends Component {
             classList: [],
             classListIndex: -1,
             selectedClass: '',
-            sectionList: [],
-            sectionListIndex: -1,
-            selectedSection: '',
             pickerDate: new Date(),
             selectedDate: '',
-            subArr: [],
-            subIndex: -1,
-            selectedSubject: '',
+            classValid: false,
             errClass: '',
-            errSub: '',
             errDate: '',
-            errSection: '',
             selectedClassId: '',
             calledStudentsData: false,
-            sectionValid: false,
-            username: '',
+            schoolId: '',
             password: '',
             dataPayload: null,
             calledLogin: false,
             callApi: '',
             dateVisible: false,
-            scanType: SCAN_TYPES.PAT_TYPE
+            autoLoginAttempt: 1,
+            studentsAndSavedData: null
         }
         this.onBack = this.onBack.bind(this)
     }
 
     componentDidMount() {
-        const { navigation, scanTypeData } = this.props
+        const { navigation } = this.props
 
         navigation.addListener('willFocus', async payload => {
+            const { loginData } = this.props
             BackHandler.addEventListener('hardwareBackPress', this.onBack)
 
             this.setState(clearState)
             
-            if(scanTypeData && scanTypeData.scanType) {
-                this.setState({ 
-                    scanType: scanTypeData.scanType
-                 })
-            }
-
-            let loginDetails = await getLoginData() 
-            if(loginDetails) {                
-                let classesArr = [...loginDetails.classes]
+            if(loginData && loginData.data) {
+                let loginRes = loginData.data
+                let classesArr = [...loginRes.classInfo]
                 let classes = []
                 _.forEach(classesArr, (data, index) => {
                     classes.push(data.className)
@@ -114,8 +96,12 @@ class SelectDetailsComponent extends Component {
                  this.setState({
                      classList: classes,
                      classesArr: classesArr,
-                     loginDetails: loginDetails
+                     loginDetails: loginRes
                  })
+            }
+            let studentsAndSavedScanArr = await getStudentsAndSavedScanData()
+            if(studentsAndSavedScanArr) {
+                this.setState({ studentsAndSavedData:  studentsAndSavedScanArr })
             }
         })
         this.willBlur = navigation.addListener('willBlur', payload =>
@@ -124,11 +110,7 @@ class SelectDetailsComponent extends Component {
     }
 
     onBack = () => {
-        const resetAction = StackActions.reset({
-            index: 0,
-            actions: [NavigationActions.navigate({ routeName: 'dashboard' })],
-        });
-        this.props.navigation.dispatch(resetAction);
+        BackHandler.exitApp()
         return true
     }
 
@@ -151,117 +133,58 @@ class SelectDetailsComponent extends Component {
     }
 
     onDropDownSelect = (index, value, type) => {
-        const { loginDetails, classesArr, selectedClass, selectedClassId, selectedSection, selectedSubject } = this.state
+        const { loginDetails, classesArr, selectedClass, studentsAndSavedData } = this.state
         if(type == 'class') {
             if(value != selectedClass) {
-                const sections = [...classesArr[index].sections]
-                // let sectionListArr = ['All']
-                let sectionListArr = []
-                _.forEach(sections, (sectionData) => sectionListArr.push(sectionData.section))
-                // sectionListArr.push('NA')
                 this.setState({
-                    sectionList: sectionListArr,
-                    sectionListIndex: 0,
-                    selectedSection: sectionListArr[0],
-                    subIndex: -1,
-                    selectedSubject: '',
                     selectedDate: '',
                     pickerDate: new Date()
                 }, () => {
-                    if(loginDetails) {
+                    let isStudentsDataLocallyAvailable = false                    
+                    if(studentsAndSavedData) {
+                        let finalStudentsAndSavedScanArr = JSON.parse(JSON.stringify(studentsAndSavedData))
+                        finalStudentsAndSavedScanArr.forEach((data) => {                            
+                            if(data && data.classId == classesArr[index].classId) {
+                                isStudentsDataLocallyAvailable = true
+                                this.props.LocalStudentsAndSavedScanData(data)
+                            }
+                        })
+                    }
+                    if(isStudentsDataLocallyAvailable) {
+                        this.setState({
+                            errSection: '',
+                            classValid: true
+                        })
+                    } 
+                    else if(loginDetails) {                        
                         let payload = {
-                            classId: classesArr[index].classId,
-                            section: sectionListArr[0],
+                            schoolCode: loginDetails.schoolInfo.schoolCode,
+                            classId: classesArr[index].classId
                         }
-                        // if(sectionListArr[0] == 'All') {
-                        //     payload.section = "0"
-                        // }
                         this.loader(true)
                         this.setState({
                             dataPayload: payload
                         }, () => {
-                            // let isTokenValid = validateToken(loginDetails.expiresOn)                                 
-                            // if(isTokenValid) {
-                                this.callStudentsData(loginDetails.token)
-                            // }
-                            // else if(!isTokenValid) {
-                            //     this.setState({
-                            //         callApi: 'callStudentsData'
-                            //     }, () => this.loginAgain())
-                            // }
+                            let isTokenValid = validateToken(loginDetails.expiresOn)                                 
+                            if(isTokenValid) {
+                                this.callStudentsData(loginDetails.jwtToken)
+                            }
+                            else if(!isTokenValid) {
+                                this.setState({
+                                    callApi: 'callStudentsData'
+                                }, () => this.loginAgain())
+                            }
                         })
                     }
                 })
             }
             this.setState({
                 errClass: '',
-                errSection: '',
-                errSub: '',
                 errDate: '',
                 classListIndex: Number(index),
                 selectedClass: value,
                 selectedClassId: classesArr[index].classId
             })
-        }
-
-        else if(type == 'section') {
-            if(value != selectedSection) {
-                this.setState({
-                    subIndex: -1,
-                    selectedSubject: '',
-                    selectedDate: '',
-                    pickerDate: new Date(),
-                    sectionValid: false,
-                    errClass: '',
-                    errSection: '',
-                    errSub: '',
-                    errDate: '',
-                })
-            }
-            this.setState({
-                sectionListIndex: Number(index),
-                selectedSection: value,
-            }, () => {
-                if(loginDetails) {
-                    let payload = {
-                        classId: selectedClassId,
-                        section: value
-                    }
-                    if(value == 'All') {
-                        payload.section = 0
-                    }
-                    this.loader(true)
-                    this.setState({
-                        dataPayload: payload
-                    }, () => {
-                        // let isTokenValid = validateToken(loginDetails.expiresOn)     
-                        // if(isTokenValid) {
-                            this.callStudentsData(loginDetails.token)
-                        // }
-                        // else if(!isTokenValid) {
-                        //     this.setState({
-                        //         callApi: 'callStudentsData'
-                        //     }, () =>  this.loginAgain())
-                        // }
-                    })
-                }
-            })
-        }
-        else if(type == 'sub') {
-            if(value != selectedSubject) {
-                this.setState({
-                    pickerDate: new Date(),
-                    selectedDate: ''
-                })
-            }
-            this.setState({
-                errClass: '',
-                errSection: '',
-                errSub: '',
-                errDate: '',
-                subIndex: Number(index),
-                selectedSubject: value
-             })
         }
     }
 
@@ -270,24 +193,67 @@ class SelectDetailsComponent extends Component {
         this.setState({
             calledStudentsData: true,
         }, () => {
-            let apiObj = new GetStudentsAndExamData(dataPayload, token);
+            let apiObj = new GetStudentsAndSavedScanData(dataPayload, token);
             this.props.APITransport(apiObj)
     
         })
     }
 
+    loginAgain = () => {
+        const { autoLoginAttempt } = this.state        
+        this.setState({ autoLoginAttempt: autoLoginAttempt + 1 }, async() => {
+            let loginCred = await getLoginCred()        
+            if(loginCred) {
+                this.setState({
+                    isLoading: true,
+                    schoolId: loginCred.schoolId,
+                    password: loginCred.password
+                }, () => {
+                    this.callLogin()
+                })
+            }
+            else {
+                Alert.alert(Strings.message_text, autoLoginAttempt <=2 ? Strings.please_try_again : Strings.please_login_again, [
+                    { 'text': Strings.ok_text, onPress: async() => {
+                        if(autoLoginAttempt <=2) {
+                            this.loginAgain()
+                        } else {
+                            await AsyncStorage.clear();
+                            this.props.navigation.navigate('auth')
+                        }
+                    }}
+                ])
+            }
+        })
+    }
+
+    callLogin = () => {
+        const { schoolId, password } = this.state
+        this.setState({
+            isLoading: true,
+            calledLogin: true
+        }, () => {
+            let loginCredObj = {
+                "userName": schoolId,
+                "password": password,
+                "classes": true
+            }
+            let apiObj = new LoginAction(loginCredObj);
+            this.props.APITransport(apiObj);
+        })
+    }
+
     async componentDidUpdate(prevProps) {
         if(prevProps != this.props) {
-            const { apiStatus, studentsAndExamData } = this.props
-            const { calledStudentsData, selectedClass, selectedSection, selectedClassId } = this.state
+            const { apiStatus, studentsAndSavedScanData, loginData } = this.props
+            const { callApi, calledLogin, calledStudentsData, selectedClass, selectedClassId } = this.state
             if (apiStatus && prevProps.apiStatus != apiStatus && apiStatus.error) {
-                if(calledStudentsData) {                    
+                if(calledStudentsData || calledLogin) {                    
                     this.loader(false)
                     this.setState({ 
                         calledStudentsData: false, 
-                        sectionValid: false, 
-                        subIndex: -1,
-                        selectedSubject: '',
+                        calledLogin: false,
+                        classValid: false,
                         selectedDate: '',
                         pickerDate: new Date()
                     }, () => {
@@ -304,56 +270,81 @@ class SelectDetailsComponent extends Component {
                 }
             }
 
+            if(calledLogin) {                
+                if (loginData && prevProps.loginData != loginData) {
+                    this.setState({
+                        isLoading: false,
+                        calledLogin: false
+                    }, async() => {
+                        if(loginData.status && loginData.status == 200) {
+                                let loginSaved = await setLoginData(loginData)
+                                if(loginSaved) {
+                                    this.setState({ 
+                                        loginDetails: loginData.data 
+                                    }, () => {
+                                        if (callApi == 'callStudentsData') {
+                                            this.callStudentsData(loginData.data.jwtToken)
+                                        }
+                                    })
+                                }
+                                else {
+                                    Alert.alert(Strings.message_text, Strings.process_failed_try_again, [
+                                        { 'text': Strings.cancel_text, style: Strings.cancel_text, onPress: () => loader(false) },
+                                        { 'text': Strings.retry_text, onPress: () => this.callLogin() }
+                        
+                                    ])
+                                }
+                        }
+                        else {
+                            Alert.alert(Strings.message_text, Strings.process_failed_try_again, [
+                                { 'text': Strings.cancel_text, style: Strings.cancel_text, onPress: () => loader(false) },
+                                { 'text': Strings.retry_text, onPress: () => this.callLogin() }
+                
+                            ])
+                        }
+                    })
+                }
+            }
+
             if(calledStudentsData) {
-                if(studentsAndExamData && prevProps.studentsAndExamData != studentsAndExamData) {
+                if(studentsAndSavedScanData && prevProps.studentsAndSavedScanData != studentsAndSavedScanData) {
                     this.loader(false)
                     this.setState({
                         calledStudentsData: false, callApi: ''
                     }, async () => {
-                        if(studentsAndExamData.status && studentsAndExamData.status == 200) {
-                            if(studentsAndExamData.data.students && studentsAndExamData.data.students.length > 0) {
+                        if(studentsAndSavedScanData.status && studentsAndSavedScanData.status == 200) {
+                            if(studentsAndSavedScanData.data.studentsInfo && studentsAndSavedScanData.data.studentsInfo.length > 0) {
                                 let obj = {
                                     class: selectedClass,
                                     classId: selectedClassId,
-                                    section: selectedSection,
-                                    data: studentsAndExamData.data
+                                    data: studentsAndSavedScanData.data
                                 }
                                 
-                                let studentsAndExamArr = await getStudentsExamData()
-                                let finalStudentsAndExamArr = []
-                                if (studentsAndExamArr != null) {
-                                    studentsAndExamArr.forEach(element => {
-                                        finalStudentsAndExamArr.push(element)
-                                    });
+                                let studentsAndSavedScanArr = await getStudentsAndSavedScanData()
+                                let finalStudentsAndSavedScanArr = []
+                                
+                                if (studentsAndSavedScanArr != null) {
+                                    finalStudentsAndSavedScanArr = JSON.parse(JSON.stringify(studentsAndSavedScanArr))
                                 }
-                                finalStudentsAndExamArr.forEach((data, index) => {
-                                    if(data && data.class == obj.class && studentsAndExamData.data) {
-                                        data.data = studentsAndExamData.data
-                                    }
-                                    if (data.class == obj.class && data.section == obj.section) {
-                                        finalStudentsAndExamArr.splice(index, 1)
+                                finalStudentsAndSavedScanArr.forEach((data, index) => {
+                                    if(data && data.classId == obj.class) {
+                                        finalStudentsAndSavedScanArr.splice(index, 1)
                                     }
                                 })
-                                finalStudentsAndExamArr.push(obj)                                
-                                let studentsExamDataSaved = await setStudentsExamData(finalStudentsAndExamArr)
-                                if(studentsExamDataSaved) {
-                                    let subArr = []
-                                    _.filter(studentsAndExamData.data.exams, function(o) {
-                                        subArr.push(o.examName)
-                                    })
+                                finalStudentsAndSavedScanArr.push(obj)                                
+                                let studentsExamDataSaved = await setStudentsAndSavedScanData(finalStudentsAndSavedScanArr)
+                                if(studentsExamDataSaved) {                                    
                                     this.setState({
+                                        studentsAndSavedData: finalStudentsAndSavedScanArr,
                                         errSection: '',
-                                        sectionValid: true,
-                                        subArr: subArr,
+                                        classValid: true
                                     })
                                 }
                             }
                             else {
                                 this.setState({
-                                    errSection: Strings.please_select_valid_section,
-                                    sectionValid: false,
-                                    subIndex: -1,
-                                    selectedSubject: '',
+                                    errClass: Strings.please_select_valid_class,
+                                    classValid: false,
                                     selectedDate: '',
                                     pickerDate: new Date()
                                 })
@@ -362,10 +353,8 @@ class SelectDetailsComponent extends Component {
                         }
                         else {
                             this.setState({
-                                errSection: Strings.process_failed_try_again,
-                                sectionValid: false,
-                                subIndex: -1,
-                                selectedSubject: '',
+                                errClass: Strings.process_failed_try_again,
+                                classValid: false,
                                 selectedDate: '',
                                 pickerDate: new Date()
                             })
@@ -377,27 +366,15 @@ class SelectDetailsComponent extends Component {
     }
 
     validateFields = () => {
-        const { classListIndex, subIndex, sectionListIndex, sectionValid, selectedDate } = this.state
-        const { scanTypeData } = this.props
+        const { classListIndex, classValid, selectedDate } = this.state
         if(classListIndex == -1) {
             this.setState({
                 errClass: Strings.please_select_class,
-                errSection: '',
-                errSub: '',
                 errDate: ''
             })
             return false
         }
-        else if(sectionListIndex == -1) {
-            this.setState({
-                errClass: '',
-                errSection: Strings.please_select_section,
-                errSub: '',
-                errDate: ''
-            })
-            return false
-        }
-        else if(!sectionValid) {
+        else if(!classValid) {
             this.setState({
                 errClass: '',
                 errSection: Strings.please_select_valid_section,
@@ -406,32 +383,20 @@ class SelectDetailsComponent extends Component {
             })
             return false
         }
-        else if(scanTypeData.scanType == SCAN_TYPES.PAT_TYPE) {
-            if(subIndex == -1) {
-                this.setState({
-                    errClass: '',
-                    errSection: '',
-                    errSub: Strings.please_select_sub,
-                    errDate: ''
-                })
-                return false
-            }
-            else if(selectedDate.length == 0) {
-                this.setState({
-                    errClass: '',
-                    errSection: '',
-                    errSub: '',
-                    errDate: Strings.please_select_date
-                })
-                return false
-            }
-            return true
+        else if(selectedDate.length == 0) {
+            this.setState({
+                errClass: '',
+                errSection: '',
+                errSub: '',
+                errDate: Strings.please_select_date
+            })
+            return false
         }
         return true
     }
 
     onSubmitClick = () => {
-        const { selectedClass, selectedClassId, selectedDate, selectedSection, selectedSubject } = this.state
+        const { selectedClass, selectedClassId, selectedDate } = this.state
         this.setState({
             errClass: '',
             errSub: '',
@@ -444,11 +409,9 @@ class SelectDetailsComponent extends Component {
                     className: selectedClass,
                     class: selectedClassId,
                     examDate: selectedDate,
-                    section: selectedSection,
-                    subject: selectedSubject,
                 }
                 this.props.FilteredDataAction(obj)
-                this.props.navigation.navigate('myScan')
+                this.props.navigation.navigate('scanHistory')
             }
         })
     }
@@ -485,8 +448,8 @@ class SelectDetailsComponent extends Component {
     }
 
     render() {
-        const { isLoading, defaultSelected, classList, classListIndex, selectedClass, sectionList, sectionListIndex, selectedSection, pickerDate, selectedDate, subArr, selectedSubject, subIndex, errClass, errSub, errDate, errSection, sectionValid, dateVisible } = this.state
-        const { loginData, scanTypeData } = this.props
+        const { isLoading, defaultSelected, classList, classListIndex, selectedClass, classValid, pickerDate, selectedDate, errClass, errDate, dateVisible, loginDetails } = this.state
+
         return (
 
             <View style={{ flex: 1, backgroundColor: AppTheme.WHITE_OPACITY }}>
@@ -496,29 +459,28 @@ class SelectDetailsComponent extends Component {
                     customLogoutTextStyle={{ color: AppTheme.GREY }}
                     onLogoutClick={this.onLogoutClick}
                 />
-                {(loginData && loginData.data) && 
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text 
-                            style={{ fontSize: AppTheme.FONT_SIZE_REGULAR, color: AppTheme.BLACK, fontWeight: 'bold',  paddingHorizontal: '5%', paddingVertical: '2%' }}
-                        >
-                            {Strings.school_name+' : '}
-                            <Text style={{ fontWeight: 'normal'}}>
-                                {loginData.data.school.name}
-                            </Text>
+                    {(loginDetails && loginDetails.schoolInfo) && 
+                    <Text 
+                        style={{ fontSize: AppTheme.FONT_SIZE_REGULAR, color: AppTheme.BLACK, fontWeight: 'bold',  paddingHorizontal: '5%', paddingVertical: '2%' }}
+                    >
+                        {Strings.school_name+' : '}
+                        <Text style={{ fontWeight: 'normal'}}>
+                            {loginDetails.schoolInfo.school}
                         </Text>
-                        <Text 
-                            style={{ fontSize: AppTheme.FONT_SIZE_REGULAR, color: AppTheme.BLACK, fontWeight: 'bold', paddingHorizontal: '5%', paddingVertical: '2%' }}
-                        >
-                            {Strings.schoolId_text+' : '}
-                            <Text style={{ fontWeight: 'normal'}}>
-                                {loginData.data.school.schoolId}
-                            </Text>
+                    </Text>}
+                    {(loginDetails && loginDetails.schoolInfo) && 
+                    <Text 
+                        style={{ fontSize: AppTheme.FONT_SIZE_REGULAR-3, color: AppTheme.BLACK, fontWeight: 'bold', paddingHorizontal: '5%', marginBottom: '2%' }}
+                    >
+                        {Strings.schoolId_text+' : '}
+                        <Text style={{ fontWeight: 'normal'}}>
+                            {loginDetails.schoolInfo.schoolCode}
                         </Text>
-                    </View>}
+                    </Text>}
                     <Text 
                         style={{ fontSize: AppTheme.FONT_SIZE_REGULAR-3, color: AppTheme.BLACK, fontWeight: 'bold', paddingHorizontal: '5%', marginBottom: '4%' }}
                     >
-                        {Strings.version_text+' : '}
+                        {Strings.version_text+': '}
                         <Text style={{ fontWeight: 'normal'}}>
                             {apkVersion}
                         </Text>
@@ -534,7 +496,7 @@ class SelectDetailsComponent extends Component {
                             {Strings.please_select_below_details}
                         </Text>
                         <View style={{ backgroundColor: 'white', paddingHorizontal: '5%', minWidth: '100%', paddingVertical: '10%', borderRadius: 4 }}>
-                            <View style={[styles.fieldContainerStyle, { paddingBottom: classListIndex != -1 ? 0 : '10%'}]}>
+                            <View style={[styles.fieldContainerStyle, { paddingBottom: classListIndex != -1 && classValid ? 0 : '10%'}]}>
                                 <View style={{ flexDirection: 'row' }}>
                                     <Text style={[styles.labelTextStyle]}>{Strings.class_text}</Text>
                                     {errClass != '' && <Text style={[styles.labelTextStyle, { color: AppTheme.ERROR_RED, fontSize: AppTheme.FONT_SIZE_TINY + 1, width: '60%', textAlign: 'right', fontWeight: 'normal' }]}>{errClass}</Text>}
@@ -548,37 +510,7 @@ class SelectDetailsComponent extends Component {
                                     icon={require('../../assets/images/arrow_down.png')}
                                 />
                             </View>
-                            {classListIndex != -1 &&
-                            <View style={[styles.fieldContainerStyle, { paddingBottom: sectionListIndex != -1 && sectionValid ? 0 : '10%'}]}>
-                                <View style={{ flexDirection: 'row' }}>
-                                    <Text style={[styles.labelTextStyle]}>{Strings.section}</Text>
-                                    {errSection != '' && <Text style={[styles.labelTextStyle, { color: AppTheme.ERROR_RED, fontSize: AppTheme.FONT_SIZE_TINY + 1, width: '60%', textAlign: 'right', fontWeight: 'normal' }]}>{errSection}</Text>}
-                                </View>
-                                <DropDownMenu
-                                    options={sectionList && sectionList}
-                                    onSelect={(idx, value) => this.onDropDownSelect(idx, value, 'section')}
-                                    defaultData={defaultSelected}
-                                    defaultIndex={sectionListIndex}
-                                    selectedData={selectedSection}
-                                    icon={require('../../assets/images/arrow_down.png')}
-                                />
-                            </View>}
-                            {scanTypeData.scanType == SCAN_TYPES.PAT_TYPE && sectionListIndex != -1 && sectionValid &&
-                            <View style={[styles.fieldContainerStyle, { paddingBottom: subIndex != -1 ? 0 : '10%'}]}>
-                                <View style={{ flexDirection: 'row' }}>
-                                    <Text style={[[styles.labelTextStyle, { width: '50%' }]]}>{Strings.exam_sub}</Text>
-                                    {errSub != '' && <Text style={[styles.labelTextStyle, { color: AppTheme.ERROR_RED, fontSize: AppTheme.FONT_SIZE_TINY + 1, width: '50%', textAlign: 'right', fontWeight: 'normal' }]}>{errSub}</Text>}
-                                </View>
-                                <DropDownMenu
-                                    options={subArr && subArr}
-                                    onSelect={(idx, value) => this.onDropDownSelect(idx, value, 'sub')}
-                                    defaultData={defaultSelected}
-                                    defaultIndex={subIndex}
-                                    selectedData={selectedSubject}
-                                    icon={require('../../assets/images/arrow_down.png')}
-                                />
-                            </View>}
-                            {((scanTypeData.scanType == SCAN_TYPES.PAT_TYPE && subIndex != -1) || (sectionListIndex != -1 && scanTypeData.scanType == SCAN_TYPES.SAT_TYPE && sectionValid)) &&
+                            {((classListIndex != -1 && classValid)) &&
                             <TouchableOpacity
                                 onPress={() => this.setState({ dateVisible: true })}
                                 style={styles.fieldContainerStyle}
@@ -653,18 +585,17 @@ const styles = {
 
 const mapStateToProps = (state) => {
     return {
-        ocrLocalResponse: state.ocrLocalResponse,
+        apiStatus: state.apiStatus,
         loginData: state.loginData,
-        studentsAndExamData: state.studentsAndExamData,
-        scanTypeData: state.scanTypeData.response
+        studentsAndSavedScanData: state.studentsAndSavedScanData,
     }
 }
 
 const mapDispatchToProps = (dispatch) => {
     return bindActionCreators({
         APITransport: APITransport,
-        OcrLocalResponseAction: OcrLocalResponseAction,
-        FilteredDataAction: FilteredDataAction
+        FilteredDataAction: FilteredDataAction,
+        LocalStudentsAndSavedScanData: LocalStudentsAndSavedScanData
     }, dispatch)
 }
 

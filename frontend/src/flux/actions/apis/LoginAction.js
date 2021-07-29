@@ -23,7 +23,7 @@ export class LoginAction extends API {
     }
 
     apiEndPoint() {
-        return `${super.apiEndPoint()}/schools/login`
+        return `${super.apiEndPoint()}/login?`
     }
 
     getHeaders() {
@@ -33,9 +33,10 @@ export class LoginAction extends API {
     }
 
     getBody() {
-        // this.loginObj["classes"] = true
-        this.loginObj.classes = true
-        
+        return null
+    }
+
+    getParams() {
         return this.loginObj
     }
 

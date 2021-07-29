@@ -8,7 +8,9 @@ import ButtonComponent from '../common/components/ButtonComponent'
 import Spinner from '../common/components/loadingIndicator';
 import APITransport from '../../flux/actions/transport/apitransport';
 import { LoginAction } from '../../flux/actions/apis/LoginAction';
-import { setLoginData, setLoginCred, getLoginCred } from '../../utils/StorageUtils'
+import { setLoginData, setLoginCred, getLoginCred, getLoginData } from '../../utils/StorageUtils'
+import { validateToken } from '../../utils/CommonUtils'
+import { LocalLoginData } from '../../flux/actions/apis/LocalLoginData';
 
 class LoginComponent extends Component {
     constructor(props) {
@@ -54,14 +56,21 @@ class LoginComponent extends Component {
     }
 
     loginUser = async () => {
-        let loginCred = await getLoginCred()        
-        if(loginCred) {
+        let loginDetails = await getLoginData()
+        let loginCred = await getLoginCred()
+        if(loginDetails && loginCred) {
             this.setState({
                 isLoading: true,
                 schoolId: loginCred.schoolId,
                 password: loginCred.password
-            }, () => {                
-                this.callLogin()
+            }, () => {
+                this.props.LocalLoginData(loginDetails)
+                let isTokenValid = validateToken(loginDetails.data.expiresOn)                                 
+                if(isTokenValid) {
+                    this.props.navigation.navigate('mainMenu')
+                } else if(!isTokenValid) {
+                    this.callLogin()
+                }                
             })
         }
         else{
@@ -78,8 +87,9 @@ class LoginComponent extends Component {
             calledLogin: true
         }, () => {
             let loginCredObj = {
-                "schoolId": schoolId,
-                "password": password
+                "userName": schoolId,
+                "password": password,
+                "classes": true
             }
             let apiObj = new LoginAction(loginCredObj);
             this.props.APITransport(apiObj);
@@ -152,7 +162,7 @@ class LoginComponent extends Component {
                                 password: password
                             }
                             let loginCred = await setLoginCred(loginCredObj)
-                            let loginSaved = await setLoginData(loginData.data)
+                            let loginSaved = await setLoginData(loginData)
                             if (loginCred && loginSaved) {
                                 navigation.navigate('mainMenu')
                             }
@@ -200,7 +210,7 @@ class LoginComponent extends Component {
                 >
                     <View style={styles.container1}>
                         <Image 
-                            source={require('../../assets/images/logo.jpeg')}
+                            source={require('../../assets/images/logo.png')}
                             style={{ width: 100, height: 100 }}
                         />
                         <Text style={styles.header1TextStyle}>
@@ -339,7 +349,8 @@ const mapStateToProps = (state) => {
 
 const mapDispatchToProps = (dispatch) => {
     return bindActionCreators({
-        APITransport: APITransport
+        APITransport: APITransport,
+        LocalLoginData: LocalLoginData
     }, dispatch)
 }
 

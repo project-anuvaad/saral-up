@@ -10,6 +10,9 @@
         <item name="android:windowBackground">@color/app_bg</item>
         <item name="android:windowFullscreen">true</item>
     </style>
+    <style name="SplashScreenTheme" parent="SplashScreen_SplashTheme">
+        <item name="colorPrimaryDark">@color/status_bar_color</item>
+    </style>
    <style name="AppEditTextStyle" parent="@style/Widget.AppCompat.EditText">
        <item name="android:editTextBackground">@android:color/transparent</item>
    </style>

@@ -29,8 +29,8 @@ export const setLoginCred = async (data) => {
 }
 
 export const getLoginCred = async () => {
-    let loginData = await getData(LOGIN_CRED_KEY)
-    return JSON.parse(loginData)
+    let loginCred = await getData(LOGIN_CRED_KEY)
+    return JSON.parse(loginCred)
 }
 
 export const setLoginData = async (data) => {
@@ -66,7 +66,7 @@ export const getScanData = async () => {
     return JSON.parse(scanData)
 }
 
-export const setStudentsExamData = async (data) => {
+export const setStudentsAndSavedScanData = async (data) => {
     let json = JSON.stringify(data);
     
     let saved = await setData(STUDENTS_EXAM_KEY, json);
@@ -78,7 +78,7 @@ export const setStudentsExamData = async (data) => {
     }
 }
 
-export const getStudentsExamData = async () => {
+export const getStudentsAndSavedScanData = async () => {
     let scanData = await getData(STUDENTS_EXAM_KEY)
     return JSON.parse(scanData)
 }

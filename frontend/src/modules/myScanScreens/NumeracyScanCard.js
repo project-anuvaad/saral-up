@@ -29,7 +29,7 @@ const NumeracyScanCard = ({
                 value={rollNumber}
                 editable={editable}
                 keyboardType={'numeric'}
-                maxLength={3}
+                maxLength={4}
             />
             <View style={styles.marksContainer}>
                 {marksData && marksData.length > 0 &&

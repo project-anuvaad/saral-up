@@ -4,6 +4,7 @@ import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
 import { StackActions, NavigationActions } from 'react-navigation';
 import SystemSetting from 'react-native-system-setting'
+import _ from 'lodash'
 import RNOpenCvCameraModel from '../../utils/RNOpenCvCamera';
 import Strings from '../../utils/Strings';
 import AppTheme from '../../utils/AppTheme';
@@ -11,7 +12,9 @@ import Spinner from '../common/components/loadingIndicator';
 import { OcrLocalResponseAction } from '../../flux/actions/apis/OcrLocalResponseAction'
 import { apkVersion } from '../../configs/config';
 import HeaderComponent from '../common/components/HeaderComponent';
-import { SCAN_TYPES } from '../../utils/CommonUtils';
+import ButtonComponent from '../common/components/ButtonComponent';
+import { getScanData } from '../../utils/StorageUtils'
+import ScanHistoryCard from './ScanHistoryCard';
 
 class MyScanComponent extends Component {
     constructor(props) {
@@ -22,6 +25,9 @@ class MyScanComponent extends Component {
             oldBrightness: null,
             activityOpen: false,
             isLoading: false,
+            onGoingData: [],
+            fetchedScanStatus: [],
+            scanData: null
         }
         this.onBack = this.onBack.bind(this)
     }
@@ -29,7 +35,7 @@ class MyScanComponent extends Component {
     componentDidMount() {
         const { navigation } = this.props
         const { params } = navigation.state
-        navigation.addListener('willFocus', payload => {
+        navigation.addListener('willFocus', async payload => {
             BackHandler.addEventListener('hardwareBackPress', this.onBack)
             if (params && params.from_screen && params.from_screen == 'scanDetails') {
                 this.setState({
@@ -38,9 +44,15 @@ class MyScanComponent extends Component {
                 
             }
             else {
+                let scanData = await getScanData()
+                if (scanData) {
+                    this.setState({
+                        scanData,
+                    })
+                }
                 this.setState({
                     showFooter: true
-                })
+                }, () => this.refactorData())
             }
         })
         this.willBlur = navigation.addListener('willBlur', payload =>
@@ -73,14 +85,13 @@ class MyScanComponent extends Component {
         }
         else {
             const { navigation } = this.props
-            const { params } = navigation.state
+            const { params } = navigation.state            
             if (params && params.from_screen && params.from_screen == 'cameraActivity') {
-                this.props.navigation.navigate('selectDetails', { from_screen: 'cameraActivity' })
+                this.props.navigation.navigate('scanHistory', { from_screen: 'cameraActivity' })
                 return true
             }
         }
-    }
-    
+    }    
 
     onScanClick = async () => {
         SystemSetting.getBrightness().then((brightness) => {
@@ -130,33 +141,35 @@ class MyScanComponent extends Component {
             }
         }
     }
+
+    lastFourDigit = (data) => {
+        let digit = data.toString().substring(data.toString().length - 4)
+        return digit;
+    }
     
     openCameraActivity = () => {
-        const { scanTypeData } = this.props
+        const { studentsAndSavedScanData } = this.props
         SystemSetting.setBrightnessForce(1).then(async (success) => {
             if (success) {
                 SystemSetting.saveBrightness();
                 this.setState({
                     activityOpen: true
                 })
-                let uniqStudentsList = ['1234567', '2345678' ]
-                const scannerType = scanTypeData.scanType ? scanTypeData.scanType : SCAN_TYPES.PAT_TYPE
-                const scannerCode = this.getScannerType(scannerType)
+                let studentList = studentsAndSavedScanData.data.studentsInfo
+                var self = this;
+                let students7DigitRollList = []
+                studentList.forEach(element => {
+                    let last4Digit = self.lastFourDigit(element.studentId)
+                    students7DigitRollList.push(last4Digit)
+                })
+                let uniqStudentsList = _.uniq(students7DigitRollList);
                 RNOpenCvCameraModel.openScanCamera(JSON.stringify(uniqStudentsList))
                     .then(data => {
                         console.log("imgArrSuccess", JSON.parse(data));
                         let scannerResponse = JSON.parse(data)
-                        scannerResponse.scannerCode = scannerCode
-                        scannerResponse.scannerType = scannerType
                         this.props.OcrLocalResponseAction(scannerResponse)
                         this.setState({ isLoading: false })
-
-                        if(scannerType == SCAN_TYPES.PAT_TYPE) {
-                            this.props.navigation.navigate('patScanDetails', { oldBrightness: this.state.oldBrightness })
-                        } else if(scannerType == SCAN_TYPES.SAT_TYPE) {
-                            this.props.navigation.navigate('satScanDetails', { oldBrightness: this.state.oldBrightness })
-                        }
-
+                        this.props.navigation.navigate('patScanDetails', { oldBrightness: this.state.oldBrightness })
                     })
                     .catch((code, errorMessage) => {
                         this.setState({ isLoading: false })
@@ -173,72 +186,151 @@ class MyScanComponent extends Component {
         });
     }
 
-    getScannerType = (scanType) => {
+
+    refactorData = () => {
+        const { studentsAndSavedScanData } = this.props        
+        let fetchedScanData = []
+        if(studentsAndSavedScanData && studentsAndSavedScanData.data && studentsAndSavedScanData.data.completedStudentsScanDetails) {
+            fetchedScanData = JSON.parse(JSON.stringify(studentsAndSavedScanData.data.completedStudentsScanDetails))
+        }
+        this.setState({
+            fetchedScanStatus: fetchedScanData
+        }, () => {
+            this.createCardData()
+        })
+    }
+
+    filterScanData = (scanData) => {
         const { filteredData } = this.props
         let response = filteredData.response
-        let classId = response.class
-        if(scanType == SCAN_TYPES.PAT_TYPE) {
-            let subject = response.subject.toLowerCase()
-            let classId = response.class
-            if(subject == 'math' && (classId == 3 || classId == 4|| classId == 5)) { //subject math - class -3,4&5.  - type -1
-                return 1
-            } else if(subject == 'hindi' && (classId == 2 || classId == 3)) { //subject hindi - class -2&3 - type - 2
-                return 2
+        let scanFilterData = []        
+        _.forEach(scanData, (item) => {            
+            if(item.classId == response.class) {
+                scanFilterData.push(item)
             }
-            else if(subject == 'hindi' && (classId == 4 || classId == 5)) { //subject hindi - class -4&5 - type - 2
-                return 3
+        })
+        return scanFilterData
+    }
+
+    createCardData = () => {
+        const { scanData, fetchedScanStatus } = this.state
+        const { filteredData, studentsAndSavedScanData } = this.props
+        let filteredDataRsp = filteredData.response
+        
+        let ongoingScan = []
+        let status = ''
+        let saveCountStatus = ''
+        
+        let fetchedCount = fetchedScanStatus.length;
+        let studentStrength = studentsAndSavedScanData.data.studentsInfo.length
+        let scanCount = 0
+        let saveCount = 0
+        if(scanData) {
+            let scanFilterData = this.filterScanData(scanData)
+            if(scanFilterData.length > 0) {
+                for (let i = 0; i < fetchedScanStatus.length; i++) {
+                    if (data.student.aadhaarUID == fetchedScanStatus[i].AadhaarUID) {
+                        fetchedCount--;
+                        break;
+                    }
+                }
             }
-        } else if(scanType == SCAN_TYPES.SAT_TYPE) {
-            if(classId == 3 || classId == 4 || classId == 5) {
-                return 1
-            } else if(classId == 6 || classId == 7 || classId == 8) {
-                return 2
-            }
+            scanCount = scanFilterData.length
+            saveCount = _.filter(scanFilterData, (o) => o.save_status == 'Yes').length
+            
         }
+        status = scanCount + fetchedCount == studentStrength ? 'Completed' : scanCount + fetchedCount + ' of ' + studentStrength
+        saveCountStatus = saveCount + fetchedCount == studentStrength ? 'Completed' : saveCount + fetchedCount + ' of ' + studentStrength
+
+        let obj = {
+            className: filteredDataRsp.class,
+            scanStatus: status,
+            saveStatus: saveCountStatus
+        }
+
+        ongoingScan.push(obj)
+        this.setState({
+            onGoingData: ongoingScan,
+        })
+    }
+
+    onDashboardClick = () => {
+        const resetAction = StackActions.reset({
+            index: 0,
+            actions: [NavigationActions.navigate({ routeName: 'selectDetails'})],
+        });
+        this.props.navigation.dispatch(resetAction);
+    }
+
+    renderIncompletedScans = () => {
+        return (
+            <View style={{ marginTop: '5%', marginBottom: '5%' }}>
+                {this.state.onGoingData.map((data, index) => {
+                    return (
+                        <ScanHistoryCard
+                            key={index}
+                            customContainerStyle={{ marginTop: '2%' }}
+                            className={data.className}
+                            scanStatus={data.scanStatus}
+                            saveStatus={data.saveStatus}
+                            showButtons={false}
+                        />
+                    )
+                })}
+            </View>
+        );
     }
 
     render() {
-        const { isLoading } = this.state;
+        const { isLoading, onGoingData } = this.state;
         const { loginData } = this.props
+        
         return (
 
             <View style={{ flex: 1, backgroundColor: AppTheme.WHITE_OPACITY }}>
                 <HeaderComponent
                     title={Strings.up_saralData}
+                    versionText={apkVersion}
                 />
-                {(loginData && loginData.data) && 
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                {(loginData.data && loginData.data.schoolInfo) && 
                     <Text 
                         style={{ fontSize: AppTheme.FONT_SIZE_REGULAR, color: AppTheme.BLACK, fontWeight: 'bold',  paddingHorizontal: '5%', paddingVertical: '2%' }}
                     >
                         {Strings.school_name+' : '}
                         <Text style={{ fontWeight: 'normal'}}>
-                            {loginData.data.school.name}
+                            {loginData.data.schoolInfo.school}
                         </Text>
-                    </Text>
+                    </Text>}
+                    {(loginData.data && loginData.data.schoolInfo) && 
                     <Text 
-                        style={{ fontSize: AppTheme.FONT_SIZE_REGULAR, color: AppTheme.BLACK, fontWeight: 'bold', paddingHorizontal: '5%', paddingVertical: '2%' }}
+                        style={{ fontSize: AppTheme.FONT_SIZE_REGULAR-3, color: AppTheme.BLACK, fontWeight: 'bold', paddingHorizontal: '5%', marginBottom: '2%' }}
                     >
                         {Strings.schoolId_text+' : '}
                         <Text style={{ fontWeight: 'normal'}}>
-                            {loginData.data.school.schoolId}
+                            {loginData.data.schoolInfo.schoolCode}
                         </Text>
-                    </Text>
-                    </View>}
-                    <Text 
-                        style={{ fontSize: AppTheme.FONT_SIZE_REGULAR-3, color: AppTheme.BLACK, fontWeight: 'bold', paddingHorizontal: '5%', marginBottom: '4%' }}
-                    >
-                        {Strings.version_text+' : '}
-                        <Text style={{ fontWeight: 'normal'}}>
-                            {apkVersion}
-                        </Text>
-                    </Text>
+                    </Text>}
                 <ScrollView
                     contentContainerStyle={{  paddingTop: '5%', paddingBottom: '35%' }}
                     showsVerticalScrollIndicator={false}
                     bounces={false}
                     keyboardShouldPersistTaps={'handled'}
                 >
+
+                    {onGoingData && onGoingData.length > 0 &&
+                        <View style={styles.container1}>
+                            <Text style={styles.header1TextStyle}>
+                                {Strings.current_scan}
+                            </Text>
+                            {this.renderIncompletedScans()}
+                            <View style={{ marginTop: '8%' }}>
+                                <ButtonComponent
+                                    customBtnStyle={styles.nxtBtnStyle}
+                                    btnText={Strings.go_to_dashboard}
+                                    onPress={this.onDashboardClick}
+                                />
+                            </View>
+                        </View>}
                 </ScrollView>
                 <View style={styles.bottomTabStyle}>
                 </View>
@@ -254,7 +346,7 @@ class MyScanComponent extends Component {
                                 style={styles.scanSubTabContainerStyle}
                             >
                                 <Image
-                                    source={require('../../assets/images/scanIcon.jpeg')}
+                                    source={require('../../assets/images/scanIcon.png')}
                                     style={styles.tabIconStyle}
                                     resizeMode={'contain'}
                                 />
@@ -280,6 +372,19 @@ const styles = {
         flex: 1,
         marginHorizontal: '6%',
         alignItems: 'center'
+    },
+    header1TextStyle: {
+        backgroundColor: AppTheme.LIGHT_BLUE,
+        lineHeight: 40,
+        borderRadius: 4,
+        borderWidth: 1,
+        borderColor: AppTheme.LIGHT_GREY,
+        width: '100%',
+        textAlign: 'center',
+        fontWeight: 'bold',
+        fontSize: AppTheme.FONT_SIZE_SMALL,
+        color: AppTheme.BLACK,
+        letterSpacing: 1
     },
     bottomTabStyle: {
         position: 'absolute',
@@ -327,15 +432,17 @@ const styles = {
         borderRadius: 45,
         justifyContent: 'center',
         alignItems: 'center'
-    }
+    },
+    nxtBtnStyle: {
+        padding: 10
+    },
 }
 
 const mapStateToProps = (state) => {
     return {
-        ocrLocalResponse: state.ocrLocalResponse,
         loginData: state.loginData,
         filteredData: state.filteredData,
-        scanTypeData: state.scanTypeData.response
+        studentsAndSavedScanData: state.studentsAndSavedScanData,
     }
 }
 

@@ -1,15 +1,15 @@
 /**
  * Students List and Exam Meta Data
  */
-import API from '../apis/api';
+import API from './api';
 import C from '../constants';
 
-export class GetStudentsAndExamData extends API {
+export class GetStudentsAndSavedScanData extends API {
     constructor(requestBody, token, timeout = 30000) {
         super('POST', timeout, false);
         this.requestBody = requestBody;
         this.token = token;
-        this.type = C.GET_STUDENTS_EXAMS_LIST;
+        this.type = C.GET_STUDENTS_AND_SAVED_SCAN_DATA;
     }
 
     toString() {
@@ -24,17 +24,21 @@ export class GetStudentsAndExamData extends API {
     }
 
     apiEndPoint() {
-        return `${super.apiEndPoint()}/fetchStudentsandExamsByQuery`;
+        return `${super.apiEndPoint()}/students?`;
     }
 
     getHeaders() {
         return {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.token}`
+            'Token': `${this.token}`
         }
     }
 
     getBody() {
+        return null
+    }
+
+    getParams() {
         return this.requestBody
     }
 

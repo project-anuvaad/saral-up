@@ -337,7 +337,7 @@ public class UPPATScannerActivity extends ReactActivity implements CameraBridgeV
     private JSONArray getStudentsAndMarks() {
         JSONArray students  = new JSONArray();
         int rows = 5;
-        int cols = 13;
+        int cols = 14;
 
         try {
             for(int row=0; row<rows; row++) {
@@ -346,14 +346,14 @@ public class UPPATScannerActivity extends ReactActivity implements CameraBridgeV
                 for(int col=0; col<cols; col++) {
                     String key = row+"_"+col;
                     String result  = mPredictedDigits.get(key);
-                    if(col <=2) {
+                    if(col <=3) {
                         sb.append(result);
                     }
-                    if(col > 2) {
+                    if(col > 3) {
                         Mat predictionMat = mPredictionMat.get(key);
                         String base64 = createBase64FromMat(predictionMat);
                         JSONObject mark  = new JSONObject();
-                        mark.put("question", col-2);
+                        mark.put("question", col-3);
                         mark.put("mark", result);
                         mark.put("base64", base64);
                         studentMarks.put(mark);
