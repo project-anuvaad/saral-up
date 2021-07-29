@@ -79,7 +79,7 @@ class PatScanDetailsComponent extends Component {
     }
 
     processData = (data) => {
-        const { filteredData, loginData } = this.props
+        const { filteredData, loginData, studentsAndSavedScanData } = this.props
         let filteredDataResponse = filteredData.response
         let selectedClass = filteredDataResponse.class
         let examDate = filteredDataResponse.examDate
@@ -125,6 +125,11 @@ class PatScanDetailsComponent extends Component {
                 }])
             }, 200);
             return
+        }
+        // to check if scan students count is more than available students
+        let studentList = studentsAndSavedScanData.data.studentsInfo
+        if(studentsArr.length > studentList.length) {
+            studentsArr.splice(studentList.length, studentsArr.length)
         }
         this.setState({
             studentsScanData: studentsArr,
