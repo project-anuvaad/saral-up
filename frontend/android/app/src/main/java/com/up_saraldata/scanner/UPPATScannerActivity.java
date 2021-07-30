@@ -17,12 +17,14 @@ import com.facebook.react.ReactActivity;
 import com.facebook.react.ReactInstanceManager;
 import com.facebook.react.bridge.ReactContext;
 import com.up_saraldata.R;
+import com.up_saraldata.hwmodel.DigitModel;
 import com.up_saraldata.hwmodel.HWClassifier;
 import com.up_saraldata.hwmodel.PredictionListener;
 import com.up_saraldata.opencv.BlurDetection;
 import com.up_saraldata.opencv.DetectShaded;
 import com.up_saraldata.opencv.ExtractROIs;
 import com.up_saraldata.opencv.TableCornerCirclesDetection;
+import com.up_saraldata.prediction.PredictionFilter;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -66,9 +68,12 @@ public class UPPATScannerActivity extends ReactActivity implements CameraBridgeV
     private int     mTotalClassifiedCount               = 0;
     private boolean mIsClassifierRequestSubmitted       = false;
     private HashMap<String, String> mPredictedDigits    = new HashMap<>();
+    private HashMap<String, DigitModel> mPredictedDigitModel    = new HashMap<>();
     private HashMap<String, Mat> mPredictionMat    = new HashMap<>();
     private HashMap<String, String> mPredictedOMRs      = new HashMap<>();
-    private HashMap<String, String> mPredictedClass     = new HashMap<>();
+    private HashMap<String, HashMap> mPredictedDigitModelArr     = new HashMap<>();
+
+    private String[] rollNumberPool;
 
     private HWClassifier hwClassifier;
 
@@ -109,6 +114,21 @@ public class UPPATScannerActivity extends ReactActivity implements CameraBridgeV
         mOpenCvCameraView.setCvCameraViewListener(this);
         mOpenCvCameraView.setMaxFrameSize(1280,720);
         mOpenCvCameraView.enableFpsMeter();
+
+        if (getIntent().hasExtra("NUMBER_POOL")) {
+            try {
+                Log.i(TAG, "NumberPool-String:" + getIntent().hasExtra("NUMBER_POOL"));
+                JSONArray jsonArray = new JSONArray(getIntent().getStringExtra("NUMBER_POOL"));
+                rollNumberPool = new String[jsonArray.length()];
+                for (int i = 0; i < jsonArray.length(); i++) {
+                    rollNumberPool[i] = jsonArray.optString(i);
+                }
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        } else {
+            Log.i(TAG, "Intent extra number pool is not found");
+        }
     }
 
     @Override
@@ -137,15 +157,13 @@ public class UPPATScannerActivity extends ReactActivity implements CameraBridgeV
                 hwClassifier    = new HWClassifier(UPPATScannerActivity.this, new PredictionListener() {
                     @Override
                     public void OnPredictionSuccess(int digit, String id) {
-                        Log.d(TAG, "predicted digit:" + digit + " unique id:" + id);
-                        mTotalClassifiedCount++;
-                        if(digit == 10) {
-                            mPredictedDigits.put(id, "");
-                        }
-                        else {
-                            mPredictedDigits.put(id, new Integer(digit).toString());
-                        }
 
+                    }
+
+                    @Override
+                    public void OnPredictionMapSuccess(DigitModel digitMap, String id) {
+                        mTotalClassifiedCount++;
+                        handleDigitsPredictions(digitMap, id);
                         if (mIsClassifierRequestSubmitted && mTotalClassifiedCount >= mPredictedDigits.size()) {
                             mIsScanningComplete     = true;
                         }
@@ -275,6 +293,25 @@ public class UPPATScannerActivity extends ReactActivity implements CameraBridgeV
         return mROIs.getUPPatROIs();
     }
 
+    private void handleDigitsPredictions(DigitModel digit, String id) {
+        Log.d(TAG, "predicted digit:" + digit.getDigit() + " unique id:" + id);
+        if (digit.getDigit() == 10) {
+            mPredictedDigits.put(id, "");
+        } else {
+            mPredictedDigits.put(id, String.valueOf(new Integer(digit.getDigit())));
+        }
+
+        //Only Roll Number to store in mPredictedDigitModelArr for PredictionFilter
+        String[] spilitedId = id.split("_");
+        if(Integer.parseInt(spilitedId[0]) >= 0 && Integer.parseInt(spilitedId[1]) <=3) {
+            mPredictedDigitModel.put(String.valueOf(spilitedId[1]), digit);
+            if(mPredictedDigitModel.size() == 4) {
+                mPredictedDigitModelArr.put(String.valueOf(spilitedId[0]), mPredictedDigitModel);
+                mPredictedDigitModel = new HashMap<>();
+            }
+        }
+    }
+
     private void processScanningCompleted() {
         if (mScanningResultShared){
             return;
@@ -283,7 +320,7 @@ public class UPPATScannerActivity extends ReactActivity implements CameraBridgeV
 
         MediaActionSound sound  = new MediaActionSound();
         sound.play(MediaActionSound.SHUTTER_CLICK);
-
+        Log.d(TAG, "processScanningCompleted: mPredictedDigitModelArr :: "+mPredictedDigitModelArr.toString());
         JSONObject  response        = getScanResult();
         Log.d(TAG, "Scanning completed OMR count: " + mPredictedOMRs.size() + " classifier count: " + mPredictedDigits.size());
 
@@ -362,6 +399,15 @@ public class UPPATScannerActivity extends ReactActivity implements CameraBridgeV
                 JSONObject studentObj  = new JSONObject();
                 studentObj.put("srn", sb.toString());
                 studentObj.put("marks", studentMarks);
+
+                //Prediction Filter
+                Log.d(TAG, "getStudentsAndMarks: mPredictedDigitModelArr.get(row):: "+mPredictedDigitModelArr.get(String.valueOf(row)).toString());
+                List<String> predResult = PredictionFilter.applyApproach1(mPredictedDigitModelArr.get(String.valueOf(row)), rollNumberPool);
+                Log.i(TAG, "Approach1========>" + predResult);
+                //If we have approach1 result then updating the predicted roll number
+                if (predResult.size() > 0)
+                    studentObj.put("srn", predResult.get(0));
+
                 students.put(studentObj);
             }
         } catch (JSONException e) {
