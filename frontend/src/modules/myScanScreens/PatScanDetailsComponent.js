@@ -30,7 +30,7 @@ class PatScanDetailsComponent extends Component {
             studentsScanData: [],
             summary: false,
             calledSavedData: false,
-            saveData: {},
+            saveData: [],
             popupVisible: false,
             popupData: [],
             defaultSelectedStuName: Strings.select_student_name
@@ -191,7 +191,7 @@ class PatScanDetailsComponent extends Component {
             } 
             else if(o.length == 0) {
                 studentsScanData[selectedIndex].stdErr = Strings.srn_not_valid
-                studentsScanData[selectedIndex].studentObj = null
+                studentsScanData[selectedIndex].studentObj = { studentId: "00000" }
             }
         })
 
@@ -263,9 +263,9 @@ class PatScanDetailsComponent extends Component {
     }
 
     validateData = (data) => {
-        const { studentsScanData } = this.state
+        const { studentsScanData } = this.state        
         let valid = true
-        for (let i = 0; i < data.length; i++) {            
+        for (let i = 0; i < data.length; i++) {  
             if (data[i].rollNumber.length != 4) {
                 data[i].stdErr = Strings.srn_length_error
                 this.setState({
@@ -273,11 +273,8 @@ class PatScanDetailsComponent extends Component {
                 })
                 valid = false
                 return
-            } else if(data[i].stdErr != '') {
-                valid = false
-                return
-            }
-            else if(data[i].stdErr == '') {
+            }  
+            else if(data[i].rollNumber.length == 4) {
                 for(let j = 0; j<studentsScanData.length; j++) {
                     if(studentsScanData[j].studentObj.studentId == data[i].studentObj.studentId && i != j) {
                         data[i].stdErr = Strings.duplicate_srn_found
@@ -292,6 +289,10 @@ class PatScanDetailsComponent extends Component {
                         data[j].stdErr = ''
                     }
                 }
+            }
+            else if(data[i].stdErr != '') {
+                valid = false
+                return
             }
             for (let j = 0; j < data[i].marksData.length; j++) {
                 for (let k = 0; k < data[i].marksData[j].marks.length; k++) {
@@ -309,12 +310,18 @@ class PatScanDetailsComponent extends Component {
         const { studentsScanData, studentClass } = this.state
         const { loginData } =  this.props
         let valid = this.validateData(studentsScanData)
+        if(!valid) {            
+            this.validateStudentIds(studentsScanData, true)
+            valid = this.validateData(studentsScanData)
+        }
+
         if (valid) {
             let saveData = []
             _.forEach(studentsScanData, (studentsData) => {
                 let saveObj = {
                     "classId": studentClass,
                     "studentId": studentsData.studentObj.studentId,
+                    "studentName": studentsData.studentObj.studentName,
                     "save_status": "No",
                 }
             
@@ -345,7 +352,7 @@ class PatScanDetailsComponent extends Component {
             })
             
             this.setState({
-                saveData: saveData,
+                saveData,
                 summary: true
             })
         }
@@ -429,6 +436,7 @@ class PatScanDetailsComponent extends Component {
                     return (
                         <StudentsSummaryCard
                             key={index}
+                            studentName={data.studentName}
                             studentRollNumber={data.studentId}
                             totalMarks={data.totalMarks}
                             securedMarks={data.securedMarks}
