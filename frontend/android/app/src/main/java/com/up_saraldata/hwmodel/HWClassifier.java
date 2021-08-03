@@ -154,8 +154,12 @@ public class HWClassifier {
                         .addOnSuccessListener(result -> {
                             float[][] output        = result.getOutput(0);
                             float[] probabilities   = output[0];
-                            int digit               = getMarksValue(probabilities);
-                            predictionListener.OnPredictionSuccess(digit, id);
+//                            int digit               = getMarksValue(probabilities);
+//                            predictionListener.OnPredictionSuccess(digit, id);
+                            DigitModel digitMap = getMarksValueMap(probabilities);
+                            digitMap.setId(id);
+                            predictionListener.OnPredictionMapSuccess(digitMap, id);
+
                         })
                         .addOnFailureListener(e -> {
                             e.printStackTrace();
@@ -181,5 +185,24 @@ public class HWClassifier {
             }
         }
         return index;
+    }
+
+    private DigitModel getMarksValueMap(float[] arr) {
+        DigitModel digitModel = new DigitModel();
+        int index   = 0;
+        double max  = arr[0];
+        for (int i = 1; i < arr.length; i++) {
+            if (arr[i] > max) {
+                max = arr[i];
+                index = i;
+                digitModel.setDigit(index);
+                digitModel.setConfidence(max);
+            }
+        }
+        //TODO manually changed the confidence value for 0 digit
+        if(digitModel.getDigit() == 0){
+            digitModel.setConfidence(1.0);
+        }
+        return digitModel;
     }
 }

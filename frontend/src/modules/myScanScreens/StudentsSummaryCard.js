@@ -5,6 +5,7 @@ import Strings from '../../utils/Strings'
 
 
 const StudentsSummaryCard = ({
+    studentName,
     studentRollNumber,
     totalMarks,
     securedMarks
@@ -14,15 +15,15 @@ const StudentsSummaryCard = ({
             style={styles.container}
         >
             <View style={styles.studentContainer}>
-                {/* <View style={styles.imageViewContainer}>
+                <View style={styles.imageViewContainer}>
                     <View style={styles.imageContainerStyle}>
                         <Text style={{ textAlign: 'center', fontSize: AppTheme.HEADER_FONT_SIZE_LARGE }}>{studentName.charAt(0)}</Text>
                     </View>
-                </View> */}
+                </View>
                 <View style={styles.deatilsViewContainer}>
                     <View style={styles.detailsSubContainerStyle}>
-                        {/* <Text style={[styles.nameTextStyle, { fontWeight: 'bold', color: AppTheme.BLACK, fontSize: AppTheme.FONT_SIZE_LARGE }]}>{studentName}</Text> */}
-                        <Text style={styles.nameTextStyle}>{Strings.student_roll + ': ' + studentRollNumber}</Text>
+                        <Text style={[styles.nameTextStyle, { fontWeight: 'bold', color: AppTheme.BLACK, fontSize: AppTheme.FONT_SIZE_LARGE }]}>{studentName}</Text>
+                        <Text style={styles.nameTextStyle}>{Strings.srn_text + ': ' + studentRollNumber}</Text>
                     </View>
                 </View>
             </View>
@@ -64,9 +65,9 @@ const styles = {
         marginRight: '1%'
     },
     imageContainerStyle: {
-        height: 90,
-        width: 90,
-        borderRadius: 45,
+        height: 60,
+        width: 60,
+        borderRadius: 30,
         borderWidth: 1,
         borderColor: AppTheme.TAB_BORDER,
         justifyContent: 'center',

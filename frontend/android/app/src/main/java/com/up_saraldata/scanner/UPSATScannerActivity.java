@@ -15,7 +15,11 @@ import com.facebook.react.ReactActivity;
 import com.facebook.react.ReactInstanceManager;
 import com.facebook.react.bridge.ReactContext;
 import com.up_saraldata.R;
+<<<<<<< HEAD
 import com.up_saraldata.commons.CVOperations;
+=======
+import com.up_saraldata.hwmodel.DigitModel;
+>>>>>>> 101ce7c7176c202cd39bf798463bde2901d5f100
 import com.up_saraldata.hwmodel.HWClassifier;
 import com.up_saraldata.hwmodel.PredictionListener;
 import com.up_saraldata.opencv.BlurDetection;
@@ -65,6 +69,7 @@ public class UPSATScannerActivity extends ReactActivity implements CameraBridgeV
     private int     mTotalClassifiedCount               = 0;
     private boolean mIsClassifierRequestSubmitted       = false;
     private HashMap<String, String> mPredictedDigits    = new HashMap<>();
+    private HashMap<String, DigitModel> mPredictedDigitModel    = new HashMap<>();
 
     private HWClassifier hwClassifier;
 
@@ -142,15 +147,13 @@ public class UPSATScannerActivity extends ReactActivity implements CameraBridgeV
                 hwClassifier    = new HWClassifier(UPSATScannerActivity.this, new PredictionListener() {
                     @Override
                     public void OnPredictionSuccess(int digit, String id) {
-                        Log.d(TAG, "predicted digit:" + digit + " unique id:" + id);
-                        mTotalClassifiedCount++;
-                        if(digit == 10) {
-                            mPredictedDigits.put(id, "");
-                        }
-                        else {
-                            mPredictedDigits.put(id, new Integer(digit).toString());
-                        }
 
+                    }
+
+                    @Override
+                    public void OnPredictionMapSuccess(DigitModel digitMap, String id) {
+                        mTotalClassifiedCount++;
+                        handleDigitsPredictions(digitMap, id);
                         if (mIsClassifierRequestSubmitted && mTotalClassifiedCount >= mPredictedDigits.size()) {
                             mIsScanningComplete     = true;
                         }
@@ -282,6 +285,28 @@ public class UPSATScannerActivity extends ReactActivity implements CameraBridgeV
             return mROIs.getSatClass6_7_8_ROIs();
         }
         return mROIs.getSatClass3_4_5_ROIs();
+    }
+
+    private void handleDigitsPredictions(DigitModel digit, String id) {
+        Log.d(TAG, "predicted digit:" + digit.getDigit() + " unique id:" + id);
+        if (digit.getDigit() == 10) {
+            mPredictedDigits.put(id, "");
+        } else {
+            mPredictedDigits.put(id, String.valueOf(new Integer(digit.getDigit())));
+        }
+
+        //Only Roll Number to store in mPredictedDigitModel for PredictionFilter
+        Character firstChar = new Character(id.charAt(0));
+        Character matchingChar = new Character('-');
+//        if(firstChar.equals(matchingChar)) {
+//            for (int index = 0; index < 4; index++) {
+//                String key = -1 + "_" + -1 + "_" + index;
+//                if(key.equals(id)) {
+//                    mPredictedDigitModel.put(String.valueOf(index), digit);
+//                    break;
+//                }
+//            }
+//        }
     }
 
     private void processScanningCompleted() {

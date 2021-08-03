@@ -25,13 +25,13 @@ export class SaveScanData extends API {
     }
 
     apiEndPoint() {
-        return `${super.apiEndPoint()}/saveMarks`;
+        return `${super.apiEndPoint()}/studentevaluation`;
     }
 
     getHeaders() {
         return {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.token}`
+            'Token': `${this.token}`
         }
     }
 
