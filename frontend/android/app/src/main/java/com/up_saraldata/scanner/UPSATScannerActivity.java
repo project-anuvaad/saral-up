@@ -15,6 +15,7 @@ import com.facebook.react.ReactActivity;
 import com.facebook.react.ReactInstanceManager;
 import com.facebook.react.bridge.ReactContext;
 import com.up_saraldata.R;
+import com.up_saraldata.commons.CVOperations;
 import com.up_saraldata.hwmodel.HWClassifier;
 import com.up_saraldata.hwmodel.PredictionListener;
 import com.up_saraldata.opencv.BlurDetection;
@@ -230,14 +231,16 @@ public class UPSATScannerActivity extends ReactActivity implements CameraBridgeV
 //        return;
 
         if (tableMat != null && isHWClassiferAvailable) {
-//            if (mIgnoreFrameCount < START_PROCESSING_COUNT) {
-//                mIgnoreFrameCount ++;
-//                return;
-//            }
+            if (mIgnoreFrameCount < START_PROCESSING_COUNT) {
+                mIgnoreFrameCount ++;
+                return;
+            }
             if(blurDetection.detectBlur(tableMat)) {
                 Log.d(TAG, "processCameraFrame: blurDetection after:: "+blurDetection.detectBlur(tableMat));
                 return;
             }
+
+            CVOperations.saveImage(tableMat,"table",3,false);
 
             isRelevantFrameAvailable        = true;
             mIsScanningComplete             = false;

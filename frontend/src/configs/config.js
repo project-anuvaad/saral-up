@@ -1,5 +1,7 @@
 const configs = {
-    BASE_URL: 'https://saralapp.prernaup.in'
+    // BASE_URL: 'https://saralapp.prernaup.in'
+    BASE_URL: 'https://uppat.idc.tarento.com/'
+    
 }
 
 export default configs;

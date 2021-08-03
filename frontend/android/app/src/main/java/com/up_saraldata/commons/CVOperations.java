@@ -73,7 +73,7 @@ public class CVOperations {
 
     public static String saveImage(Mat image, String name, int randomLength, boolean flip) {
         String random       = getAlphaNumericString(randomLength);
-        String filepath     = Environment.getExternalStorageDirectory().getPath() + "/" + name + "_" + random + ".jpg";
+        String filepath     = Environment.getExternalStorageDirectory().getPath() + "/SaralData/" + name + "_" + random + ".jpg";
         byte[] byteArray    = null;
 
         Bitmap resultBitmap = Bitmap.createBitmap(image.cols(), image.rows(), Bitmap.Config.ARGB_8888);
