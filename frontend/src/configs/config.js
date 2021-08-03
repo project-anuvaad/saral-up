@@ -1,11 +1,5 @@
 const configs = {
-<<<<<<< HEAD
-    // BASE_URL: 'https://saralapp.prernaup.in'
-    BASE_URL: 'https://uppat.idc.tarento.com/'
-    
-=======
     BASE_URL: 'https://saralapp.prernaup.in/api'
->>>>>>> 101ce7c7176c202cd39bf798463bde2901d5f100
 }
 
 export default configs;

@@ -15,11 +15,8 @@ import com.facebook.react.ReactActivity;
 import com.facebook.react.ReactInstanceManager;
 import com.facebook.react.bridge.ReactContext;
 import com.up_saraldata.R;
-<<<<<<< HEAD
 import com.up_saraldata.commons.CVOperations;
-=======
 import com.up_saraldata.hwmodel.DigitModel;
->>>>>>> 101ce7c7176c202cd39bf798463bde2901d5f100
 import com.up_saraldata.hwmodel.HWClassifier;
 import com.up_saraldata.hwmodel.PredictionListener;
 import com.up_saraldata.opencv.BlurDetection;
