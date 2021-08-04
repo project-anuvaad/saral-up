@@ -432,7 +432,7 @@ class PatScanDetailsComponent extends Component {
         const { saveData } = this.state
         return (
             <View style={{ marginBottom: '5%', width: '100%' }}>
-                {saveData.map((data, index) => {                    
+                {saveData.map((data, index) => {    
                     return (
                         <StudentsSummaryCard
                             key={index}

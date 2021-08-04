@@ -51,7 +51,7 @@ const NumeracyScanCard = ({
                                             editable={false}
                                         />
                                         <TextInput
-                                            style={[styles.titleTextStyle, { borderColor: marks.mark.length == 0 ? AppTheme.ERROR_RED : rowBorderColor, borderTopWidth: .8  } ]}
+                                            style={[styles.titleTextStyle, { borderColor: marks.mark.length == 0 || marks.mark>1 ? AppTheme.ERROR_RED : rowBorderColor, borderTopWidth: .8  } ]}
                                             value={String(marks.mark)}
                                             multiline={true}
                                             onChangeText={(text) => onMarksChangeText(text, index, dataIndex)}
